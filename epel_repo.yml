@@ -1,0 +1,19 @@
+---
+- name: some basic setting
+  hosts: install
+  remote_user: root
+  become: yes
+  become_method: sudo
+
+  tasks:
+  - name: check if EPEL is exist
+    stat: path="/etc/yum.repos.d/epel.repo"
+    register: epel_file_result
+  - name: Download and Install EPEL Repo
+    yum_repository:
+      name: epel
+      enabled: yes
+      description: EPEL YUM repo
+      baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
+      gpgcheck: no
+    when: not epel_file_result.stat.exists

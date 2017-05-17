@@ -1,0 +1,94 @@
+---
+- name: shut down selinux
+  selinux:
+    policy: targeted
+    state: permissive
+
+- name: install gcc and etc
+  yum: 
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - "gcc"
+    - "gcc-c++"
+    - "python"
+    - "MySQL-python"
+    - "deltarpm"
+    - "wget"
+    - "vim"
+
+- name: copy rpm
+  copy: 
+    src: "{{ item }}"
+    dest: "/root/"
+  with_items:
+    - "/Users/smart/platform/packages/node-v6.10.2.tar.gz"
+    - "/Users/smart/platform/packages/mysql57-community-release-el7-8.noarch.rpm"
+    - "/Users/smart/platform/packages/nginx-release-centos-7-0.el7.ngx.noarch.rpm"
+    - "/Users/smart/platform/packages/jenkins.war"
+
+- name: install rpm
+  yum: 
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - "/root/mysql57-community-release-el7-8.noarch.rpm"
+    - "/root/nginx-release-centos-7-0.el7.ngx.noarch.rpm"
+
+- name: install necessary service
+  yum: 
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - "nginx"
+    - "redis"
+    - "mysql-server"
+    - "java"
+    - "daemonize"
+    - "jemalloc"
+
+- name: config nginx
+  copy:
+    src: "/Users/smart/platform/conf/nginx.conf"
+    dest: "/etc/nginx/nginx.conf"
+  notify:
+    - start and enable nginx
+
+- name: config redis
+  copy:
+    src: "/Users/smart/platform/conf/redis.conf"
+    dest: "/etc/redis.conf"
+  notify:
+    - start and enable redis
+
+- name: start and enable mysql-server
+  service: name=mysqld state=started enabled=yes
+
+- name: get mysql tomporary password
+  shell: grep 'temporary password' /var/log/mysqld.log | cut -d ' ' -f 11
+  register: tem_pass
+
+- name: write temporary client file 
+  template:
+    src: ".my.cnf.j2" 
+    dest: "/root/.my.cnf"
+
+- name: set global validate_password_policy
+  shell: mysql --defaults-file=/root/.my.cnf -e "set global validate_password_policy=0"
+
+- name: Update mysql root password for root accounts
+  shell: mysql --defaults-file=/root/.my.cnf -e "ALTER USER 'root'@'localhost' IDENTIFIED BY  '{{ mysql_password }}' "
+  notify:
+    - start and enable mysql-server
+
+- name: script install node-v6.10.2
+  script: /Users/smart/platform/conf/install.sh
+
+- name: install npm
+  yum:
+    name: "npm"
+    state: present
+
+- name: install pm2
+  shell: npm install pm2
+
